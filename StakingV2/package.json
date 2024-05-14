@@ -1,0 +1,23 @@
+{
+  "name": "staking_foundry",
+  "version": "1.0.0",
+  "description": "The contract is used to distribute collected fees to stakers by weekly. The admin of the contract put reward tokens once or twice per week and the reward is instantly distributed to the stakers based on their weight (`lock amount * duration`). There's no duration for the distribution so the calculation is fairly easy.  On offchain, the bot runs to recalibrate users weight(`lock amount * duration`) so that the expired locks excluded when calculate rewards or admin can recalibrate users weight manually before put reward token.",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^3.0.0",
+    "@openzeppelin/hardhat-upgrades": "^2.3.3",
+    "dotenv": "^16.3.1",
+    "ethers": "^6.8.1",
+    "hardhat": "^2.19.1",
+    "hardhat-preprocessor": "^0.1.5"
+  }
+}
