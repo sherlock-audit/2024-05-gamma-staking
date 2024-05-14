@@ -8,20 +8,3 @@
 # Q&A
 
 # Audit scope
-
-
-[StakingV2 @ 0fd03768dda3b15db32cc04269e1110aeb7f07cb](https://github.com/GammaStrategies/StakingV2/tree/0fd03768dda3b15db32cc04269e1110aeb7f07cb)
-- [StakingV2/src/Lock.sol](StakingV2/src/Lock.sol)
-- [StakingV2/src/interfaces/ILock.sol](StakingV2/src/interfaces/ILock.sol)
-- [StakingV2/src/interfaces/ILockList.sol](StakingV2/src/interfaces/ILockList.sol)
-- [StakingV2/src/libraries/AddressPagination.sol](StakingV2/src/libraries/AddressPagination.sol)
-- [StakingV2/src/libraries/LockList.sol](StakingV2/src/libraries/LockList.sol)
-- [StakingV2/test/Deposit.t.sol](StakingV2/test/Deposit.t.sol)
-- [StakingV2/test/LockList.t.sol](StakingV2/test/LockList.t.sol)
-- [StakingV2/test/PenaltyCalculations.t.sol](StakingV2/test/PenaltyCalculations.t.sol)
-- [StakingV2/test/RestakeAfterLateExit.t.sol](StakingV2/test/RestakeAfterLateExit.t.sol)
-- [StakingV2/test/Setup.sol](StakingV2/test/Setup.sol)
-- [StakingV2/test/UnlockCalculation.t.sol](StakingV2/test/UnlockCalculation.t.sol)
-- [StakingV2/test/Withdraw.t.sol](StakingV2/test/Withdraw.t.sol)
-
-
