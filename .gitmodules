@@ -1,3 +1,6 @@
 [submodule "StakingV2/lib/openzeppelin-contracts-upgradeable"]
 	path = StakingV2/lib/openzeppelin-contracts-upgradeable
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable
+[submodule "StakingV2/lib/openzeppelin-contracts"]
+	path = StakingV2/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
