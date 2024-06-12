@@ -57,7 +57,6 @@ contract Lock is
     /// @notice user -> reward token -> amount; reward debt amount
     mapping(address => mapping(address => uint256)) internal rewardDebt;
 
-
     /********************** Other Info ***********************/
 
     address public override stakingToken;
@@ -236,7 +235,6 @@ contract Lock is
 
     /********************** Operate functions ***********************/
 
-
     /// @notice Allows a user to stake tokens on behalf of another address, specifying the lock type to determine reward eligibility and lock duration.
     /// @dev Calls an internal function to handle the staking logic with `isRelock` set to `false`.
     /// @param amount The amount of tokens to be staked.
@@ -246,8 +244,19 @@ contract Lock is
         uint256 amount,
         address onBehalfOf,
         uint256 typeIndex
-    ) external override {
+    ) external onlyOwner{
         _stake(amount, onBehalfOf, typeIndex, false);
+    }
+
+    /// @notice Default staking option
+    /// @dev Calls an internal function to handle the staking logic with `isRelock` set to `false`.
+    /// @param amount The amount of tokens to be staked.
+    /// @param typeIndex An index referring to the type of lock to be applied, which affects reward calculations and lock duration.
+    function stake(
+        uint256 amount,
+        uint256 typeIndex
+    ) external {
+        _stake(amount, msg.sender, typeIndex, false);
     }
 
     /// @notice Handles the internal logic for staking tokens, applying specified lock types and managing reward eligibility.
@@ -310,7 +319,7 @@ contract Lock is
     /// @notice Allows a staker to perform an early exit from a locked position using the specified lock ID.
     /// @dev This function handles the early exit process, calculating penalties, updating balances, and transferring funds.
     /// @param lockId The unique identifier of the lock from which the user wishes to exit early.
-    function earlyExitById(uint256 lockId) external whenNotPaused {
+    function earlyExitById(uint256 lockId, uint256 expectedAmount) external whenNotPaused {
         if (isEarlyExitDisabled) {
             revert EarlyExitDisabled();
         }
@@ -331,6 +340,7 @@ contract Lock is
         bal.lockedWithMultiplier -= lock.amount * lock.multiplier;
 
         _updateRewardDebt(msg.sender);
+        require(expectedAmount >= lock.amount - penaltyAmount);
 
         if (lock.amount > penaltyAmount) {
             IERC20(stakingToken).safeTransfer(msg.sender, lock.amount - penaltyAmount);
@@ -347,9 +357,10 @@ contract Lock is
     /// @dev This function adjusts the unlock time based on the remaining cooldown period, updates the locked balances, flags the lock as exited late, and logs the exit.
     /// @param id The unique identifier of the lock from which the user wishes to exit late.
     function exitLateById(uint256 id) external {
-        _updateReward(msg.sender); // Updates any pending rewards for the caller before proceeding.
-
         LockedBalance memory lockedBalance = locklist.getLockById(msg.sender, id); // Retrieves the lock details from the lock list as a storage reference to modify.
+        require(!lockedBalance.exitedLate, "Already exited");
+
+        _updateReward(msg.sender); // Updates any pending rewards for the caller before proceeding.
 
         // Calculate and set the new unlock time based on the remaining cooldown period.
         uint256 coolDownSecs = calcRemainUnlockPeriod(lockedBalance);
@@ -399,37 +410,28 @@ contract Lock is
         emit RestakedAfterLateExit(msg.sender, id, lockedBalance.amount, typeIndex);
     }
 
-
-
-
-
-
     /// @notice Withdraws all currently unlocked tokens where the unlock time has passed for the calling user.
     /// @dev Iterates through the list of all locks for the user, checks if the unlock time has passed, and withdraws the total unlocked amount.
     function withdrawAllUnlockedToken() external override nonReentrant {
         uint256 lockCount = locklist.lockCount(msg.sender); // Fetch the total number of locks for the caller.
-        uint256 page;
-        uint256 limit;
+        uint256 page = 0;
+        uint256 limit = 10;
         uint256 totalUnlocked;
         
-        while (limit < lockCount) {
-            LockedBalance[] memory lockedBals = locklist.getLocks(msg.sender, page, lockCount); // Retrieves a page of locks for the user.
+        while (page * limit < lockCount) {
+            LockedBalance[] memory lockedBals = locklist.getLocks(msg.sender, page, limit);
             for (uint256 i = 0; i < lockedBals.length; i++) {
                 if (lockedBals[i].unlockTime != 0 && lockedBals[i].unlockTime < block.timestamp) {
                     totalUnlocked += lockedBals[i].amount; // Adds up the amount from all unlocked balances.
                     locklist.removeFromList(msg.sender, lockedBals[i].lockId); // Removes the lock from the list.
                 }
             }
-
-            limit += 10; // Moves to the next page of locks.
             page++;
         }
 
         IERC20(stakingToken).safeTransfer(msg.sender, totalUnlocked); // Transfers the total unlocked amount to the user.
         emit WithdrawAllUnlocked(msg.sender, totalUnlocked); // Emits an event logging the withdrawal.
     }
-
-
 
     /// @notice Withdraws a specific unlocked token amount using the given lock ID, if the unlock time has passed.
     /// @dev Retrieves the lock details by ID, checks if it is unlocked, and transfers the unlocked amount to the user.
@@ -442,7 +444,6 @@ contract Lock is
             emit WithdrawUnlockedById(id, msg.sender, lockedBal.amount); // Emits an event logging the withdrawal of the unlocked tokens.
         }
     }
-
 
     /********************** Reward functions ***********************/
 
@@ -501,8 +502,8 @@ contract Lock is
     /// @notice Checks and updates unseen rewards for a list of reward tokens.
     /// @dev Iterates through the provided list of reward tokens and triggers the _notifyUnseenReward function for each if it has been previously added to the contract.
     /// @param _rewardTokens An array of reward token addresses to check and update for unseen rewards.
-    function notifyUnseenReward(address[] memory _rewardTokens) external {
-        uint256 length = rewardTokens.length; // Gets the number of reward tokens currently recognized by the contract.
+    function notifyUnseenReward(address[] memory _rewardTokens) external onlyOwner {
+        uint256 length = _rewardTokens.length; // Gets the number of reward tokens currently recognized by the contract.
         for (uint256 i = 0; i < length; ++i) {
             if (rewardTokenAdded[_rewardTokens[i]]) {
                 _notifyUnseenReward(_rewardTokens[i]); // Processes each token to update any unseen rewards.
@@ -569,13 +570,12 @@ contract Lock is
     function calcPenaltyAmount(LockedBalance memory userLock) public view returns (uint256 penaltyAmount) {
         if (userLock.amount == 0) return 0; // Return zero if there is no amount locked to avoid unnecessary calculations.
         uint256 unlockTime = userLock.unlockTime;
-        uint256 lockPeriod = userLock.lockPeriod;
+        uint256 userLockPeriod = userLock.lockPeriod;
         uint256 penaltyFactor;
 
 
-        if (lockPeriod <= defaultRelockTime || (block.timestamp - userLock.lockTime) < lockPeriod) {
-
-            penaltyFactor = (unlockTime - block.timestamp) * timePenaltyFraction / lockPeriod + basePenaltyPercentage;
+        if (userLockPeriod <= defaultRelockTime || (block.timestamp - userLock.lockTime) < userLockPeriod) {
+            penaltyFactor = (unlockTime - block.timestamp) * timePenaltyFraction / userLockPeriod + basePenaltyPercentage;
         }
         else {
             penaltyFactor = (unlockTime - block.timestamp) * timePenaltyFraction / defaultRelockTime + basePenaltyPercentage;
@@ -595,14 +595,14 @@ contract Lock is
     /// @return uint256 of remaining time in seconds until the lock can be unlocked.
     function calcRemainUnlockPeriod(LockedBalance memory userLock) public view returns (uint256) {
         uint256 lockTime = userLock.lockTime;
-        uint256 lockPeriod = userLock.lockPeriod;
+        uint256 userLockPeriod = userLock.lockPeriod;
         
-        if (lockPeriod <= defaultRelockTime || (block.timestamp - lockTime) < lockPeriod) {
+        if (userLockPeriod <= defaultRelockTime || (block.timestamp - lockTime) < userLockPeriod) {
             // If the adjusted lock period is less than or equal to the default relock time, or if the current time is still within the adjusted lock period, return the remaining time based on the adjusted lock period.
-            return lockPeriod - (block.timestamp - lockTime) % lockPeriod;
+            return userLockPeriod - (block.timestamp - lockTime) % userLockPeriod;
         } else {
             // If the current time exceeds the adjusted lock period, return the remaining time based on the default relock time.
-            return defaultRelockTime - (block.timestamp - lockTime) % defaultRelockTime;
+            return defaultRelockTime - (block.timestamp - lockTime - userLockPeriod) % defaultRelockTime;
         }
     }
 

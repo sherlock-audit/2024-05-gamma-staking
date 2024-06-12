@@ -14,11 +14,11 @@ contract WithdrawTest is Test, Setup {
     function testExitLateAndRewards() public {
         // Users stake tokens
         vm.prank(user1);
-        lock.stake(100e18, user1, 0);
+        lock.stake(100e18, 0);
         vm.prank(user2);
-        lock.stake(100e18, user2, 1);
+        lock.stake(100e18, 1);
         vm.prank(user3);
-        lock.stake(100e18, user3, 2);
+        lock.stake(100e18, 2);
         
         // Fetch the first lock for user1 and perform a late exit
         LockedBalance[] memory user1Locks = lockList.getLocks(user1, 0, 10);

@@ -105,7 +105,7 @@ User E:
   /// @notice Tests the unlock period calculation for User A who staked for half the minimum lock period.
   function testUserACase() public {
       vm.prank(user1);
-      lock.stake(100e18, user1, 0); // User A stakes with the first lock type
+      lock.stake(100e18, 0); // User A stakes with the first lock type
 
       vm.warp(block.timestamp + 15 days); // Simulate passing 15 days
       LockedBalance memory lockedBalance = lock.locklist().getLock(user1, 0);
@@ -116,7 +116,7 @@ User E:
   /// @notice Tests the unlock period calculation for User B who completes an exact lock cycle.
   function testUserBCase() public {
       vm.prank(user2);
-      lock.stake(100e18, user2, 1); // User B stakes with the second lock type
+      lock.stake(100e18, 1); // User B stakes with the second lock type
 
       vm.warp(block.timestamp + 60 days); // Simulate passing the entire lock period
       LockedBalance memory lockedBalance = lock.locklist().getLock(user2, 0);
@@ -128,7 +128,7 @@ User E:
   /// @notice Tests unlock period calculation for User C, who is one day short of completing the lock cycle.
   function testUserCCase() public {
       vm.prank(user3);
-      lock.stake(100e18, user3, 1); // User C stakes like User B
+      lock.stake(100e18, 1); // User C stakes like User B
 
       vm.warp(block.timestamp + 59 days); // One day less than the lock period
       LockedBalance memory lockedBalance = lock.locklist().getLock(user3, 0);
@@ -140,7 +140,7 @@ User E:
     /// @dev User D has staked for 349 days with a 360-day lock period, testing the calculation of remaining days.
     function testUserDCase() public {
         vm.prank(user4);
-        lock.stake(100e18, user4, 2); // User D stakes with the third lock type for the longest period
+        lock.stake(100e18, 2); // User D stakes with the third lock type for the longest period
 
         vm.warp(block.timestamp + 349 days); // Warp to one day short of a full year minus 11 days
         LockedBalance memory lockedBalance = lock.locklist().getLock(user4, 0);
@@ -152,7 +152,7 @@ User E:
     /// @dev User E's scenario tests the system's handling of lock periods when the staking duration surpasses the designated lock period and should cycle back to a default relock period of 30 days.
     function testUserECase() public {
         vm.prank(user5);
-        lock.stake(100e18, user5, 2); // User E also stakes with the longest lock period option
+        lock.stake(100e18, 2); // User E also stakes with the longest lock period option
 
         vm.warp(block.timestamp + 400 days); // Exceed the 360-day lock by 40 days
         LockedBalance memory lockedBalance = lock.locklist().getLock(user5, 0);
@@ -160,4 +160,23 @@ User E:
         assertEq(remainPeriod, 20 days, "Remaining unlock period should be reset to 20 days for User E after exceeding lock cycle because he completed a full 360 day cycle, followed by a full default 30-day cycle, and he's 10 days into the next 30-day cycle.  Thus he has 20 days left");
     }
 
+    /// @notice Tests the unlock period calculation mentioned in audit
+    function testForAuditFix() public {
+        delete lockPeriod;
+        vm.startPrank(deployer);
+        lock.setDefaultRelockTime(7 days);
+        lockPeriod.push(10 days);
+        lockPeriod.push(20 days);
+        lockPeriod.push(30 days);
+        lock.setLockTypeInfo(lockPeriod, lockMultiplier);
+        vm.stopPrank();
+
+        vm.prank(user1);
+        lock.stake(100e18, 0); // User A stakes with the first lock type
+
+        vm.warp(block.timestamp + 12 days); // Simulate passing 15 days
+        LockedBalance memory lockedBalance = lock.locklist().getLock(user1, 0);
+        uint256 remainPeriod = lock.calcRemainUnlockPeriod(lockedBalance);
+        assertEq(remainPeriod, 5 days, "Remaining unlock period should be 15 days for User A.");
+    }
 }
