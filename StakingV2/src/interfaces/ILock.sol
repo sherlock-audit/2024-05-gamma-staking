@@ -35,6 +35,8 @@ struct RewardData {
 interface ILock {
     function stake(uint256 amount, address onBehalfOf, uint256 typeIndex) external;
 
+    function stake(uint256 amount, uint256 typeIndex) external;
+
     function withdrawAllUnlockedToken() external;
 
     function claimableRewards(address account) external view returns (RewardData[] memory rewards);

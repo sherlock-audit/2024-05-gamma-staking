@@ -13,11 +13,11 @@ contract DepositTest is Test, Setup {
     function testSimpleDeposit() public {
         // Simulating deposits by three different users
         vm.prank(user1);
-        lock.stake(100e18, user1, 0);
+        lock.stake(100e18, 0);
         vm.prank(user2);
-        lock.stake(100e18, user2, 1);
+        lock.stake(100e18, 1);
         vm.prank(user3);
-        lock.stake(100e18, user3, 2);
+        lock.stake(100e18, 2);
 
         // Distributing rewards to the staking contract
         vm.prank(deployer);
@@ -42,11 +42,11 @@ contract DepositTest is Test, Setup {
     function testDeposit() public {
         // Initial staking by three users
         vm.prank(user1);
-        lock.stake(100e18, user1, 0);
+        lock.stake(100e18, 0);
         vm.prank(user2);
-        lock.stake(100e18, user2, 1);
+        lock.stake(100e18, 1);
         vm.prank(user3);
-        lock.stake(100e18, user3, 2);
+        lock.stake(100e18, 2);
 
         // First reward distribution
         vm.prank(deployer);
@@ -67,9 +67,9 @@ contract DepositTest is Test, Setup {
 
         // Additional stakes by user1
         vm.prank(user1);
-        lock.stake(100e18, user1, 1);
+        lock.stake(100e18, 1);
         vm.prank(user1);
-        lock.stake(100e18, user1, 1);
+        lock.stake(100e18, 1);
 
         // Second reward distribution
         vm.prank(deployer);
@@ -87,5 +87,31 @@ contract DepositTest is Test, Setup {
         vm.prank(user3);
         lock.getAllRewards();
         assertEq(_rewardToken.balanceOf(user3), 480e18);
+    }
+
+    function testDepositOnBehalfFailWithNonOwner() public {
+        // Initial staking by three users
+        vm.prank(user1);
+        vm.expectRevert();
+        lock.stake(100e18, user2, 0);
+    }
+
+    function testNotifyUnseenRewardForNonRewardToken() public {
+        // Initial staking by three users
+        vm.prank(user1);
+        lock.stake(100e18, 0);
+
+        // First reward distribution
+        vm.prank(deployer);
+        _rewardToken.transfer(address(lock), 600e18);
+        vm.prank(deployer);
+        address[] memory fakeRewardTokens = new address[](1);
+        fakeRewardTokens[0] = address(0);
+        lock.notifyUnseenReward(fakeRewardTokens);
+
+        // Checking initial rewards
+        vm.prank(user1);
+        lock.getAllRewards();
+        assertEq(_rewardToken.balanceOf(user1), 0);
     }
 }
